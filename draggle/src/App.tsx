@@ -20,11 +20,12 @@ import { CSS } from "@dnd-kit/utilities";
 const theme = {
   background: "#2B2B2B",
   panel: "#3C3F41",
-  border: "#555",
+  border: "#4B4B4B",
   text: "#FFFFFF",
-  highlight: "#FFCC66",
+  highlight: "#FFC66D",
   error: "#E06C75",
   accent: "#A9B7C6",
+  blockHover: "#4E5254",
 };
 
 // Define block structure
@@ -52,16 +53,28 @@ const SortableBlock = ({ block }: { block: Block }) => {
     alignItems: "center",
     justifyContent: "center",
     padding: "15px",
-    marginBottom: "5px",
+    marginBottom: "8px",
     backgroundColor: theme.panel,
-    borderRadius: "5px",
+    borderRadius: "6px",
     cursor: "grab",
     color: theme.text,
     border: `1px solid ${theme.border}`,
+    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+    fontWeight: "bold",
+    fontSize: "14px",
+    userSelect: "none",
+    transition: "background 0.2s ease",
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = theme.blockHover)}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = theme.panel)}
+    >
       {block.label}
     </div>
   );
@@ -75,18 +88,21 @@ const DropZone = ({ droppedBlocks }: { droppedBlocks: Block[] }) => {
     <div
       ref={setNodeRef}
       style={{
-        minHeight: "200px",
-        padding: "10px",
+        minHeight: "250px",
+        padding: "12px",
         border: `2px dashed ${theme.highlight}`,
         backgroundColor: theme.background,
-        borderRadius: "5px",
+        borderRadius: "8px",
         color: theme.accent,
         position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
       }}
     >
       <SortableContext items={droppedBlocks.map((block) => block.id)} strategy={verticalListSortingStrategy}>
         {droppedBlocks.length === 0 ? (
-          <p style={{ textAlign: "center", color: theme.accent }}>Drop Blocks Here</p>
+          <p style={{ textAlign: "center", color: theme.accent, fontSize: "14px" }}>Drop Blocks Here</p>
         ) : (
           droppedBlocks.map((block) => <SortableBlock key={block.id} block={block} />)
         )}
@@ -96,28 +112,54 @@ const DropZone = ({ droppedBlocks }: { droppedBlocks: Block[] }) => {
 };
 
 // Trash Bin component
+// Trash Bin component
 const TrashBin = () => {
   const { setNodeRef } = useDroppable({ id: "trash-bin" });
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{
-        width: "150px",
-        height: "150px",
-        backgroundColor: theme.error,
-        borderRadius: "10px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "white",
-        fontSize: "20px",
-        fontWeight: "bold",
-        border: `2px solid ${theme.border}`,
-        marginLeft: "20px",
-      }}
-    >
-      🗑️ Trash Bin
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div
+        ref={setNodeRef}
+        style={{
+          width: "160px",
+          height: "160px",
+          backgroundColor: theme.error,
+          borderRadius: "10px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+          fontSize: "20px",
+          fontWeight: "bold",
+          border: `2px solid ${theme.border}`,
+          boxShadow: "0 3px 6px rgba(0, 0, 0, 0.4)",
+          transition: "background 0.2s ease",
+          cursor: "pointer",
+          marginBottom: "10px",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#D64F5A")}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = theme.error)}
+      >
+        🗑️ Trash Bin
+      </div>
+
+      {/* Check Code Button */}
+      <button
+        style={{
+          backgroundColor: theme.highlight,
+          border: "none",
+          padding: "10px 15px",
+          borderRadius: "5px",
+          fontWeight: "bold",
+          fontSize: "14px",
+          cursor: "pointer",
+          transition: "background 0.2s ease",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#FFB347")}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = theme.highlight)}
+      >
+        Check Code
+      </button>
     </div>
   );
 };
@@ -141,10 +183,8 @@ const App = () => {
     if (!over) return;
 
     if (over.id === "trash-bin") {
-      // Block dragged into the trash bin, delete it
       setDroppedBlocks((prev) => prev.filter((block) => block.id !== active.id));
     } else if (droppedBlocks.some((block) => block.id === active.id)) {
-      // Reorder blocks inside the Drop Zone
       const oldIndex = droppedBlocks.findIndex((block) => block.id === active.id);
       const newIndex = droppedBlocks.findIndex((block) => block.id === over.id);
 
@@ -156,38 +196,39 @@ const App = () => {
 
   return (
     <div style={{ backgroundColor: theme.background, height: "100vh", color: theme.text, padding: "20px" }}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragEnd={handleDragEnd}
-      >
-        <h1 style={{ textAlign: "center", color: theme.highlight }}>Drag and Drop Coding</h1>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+        <h1 style={{ textAlign: "center", color: theme.highlight, fontSize: "22px", marginBottom: "15px" }}>
+          JetBrains-Style Drag & Drop Coding
+        </h1>
 
-        <div style={{ display: "flex", gap: "20px", justifyContent: "center", alignItems: "center" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: "30px", alignItems: "start" }}>
           {/* Blocks that can be dragged */}
           <div
             style={{
               backgroundColor: theme.panel,
-              padding: "10px",
-              borderRadius: "5px",
-              border: `1px solid ${theme.border}`,
+              padding: "12px",
+              borderRadius: "8px",
+              border: `2px solid ${theme.border}`,
             }}
           >
-            <h3 style={{ textAlign: "center", color: theme.accent }}>Available Blocks</h3>
+            <h3 style={{ textAlign: "center", color: theme.accent, fontSize: "16px", marginBottom: "10px" }}>
+              Available Blocks
+            </h3>
             {blocks.map((block) => (
               <div
                 key={block.id}
                 onMouseDown={() => handleDrop(block.id)}
                 style={{
-                  padding: "10px",
-                  margin: "5px",
+                  padding: "12px",
+                  margin: "6px 0",
                   backgroundColor: theme.panel,
                   color: theme.text,
                   cursor: "grab",
-                  borderRadius: "5px",
+                  borderRadius: "6px",
                   textAlign: "center",
                   fontWeight: "bold",
                   border: `1px solid ${theme.border}`,
+                  transition: "background 0.2s ease",
                 }}
               >
                 {block.label}
@@ -195,7 +236,7 @@ const App = () => {
             ))}
           </div>
 
-          {/* Drop Zone (Sortable) */}
+          {/* Drop Zone */}
           <DropZone droppedBlocks={droppedBlocks} />
 
           {/* Trash Bin */}
@@ -203,20 +244,22 @@ const App = () => {
         </div>
 
         {/* Code Output */}
-        <pre
+        <div
           style={{
             marginTop: "20px",
-            padding: "10px",
+            padding: "15px",
             backgroundColor: theme.panel,
-            borderRadius: "5px",
-            border: `1px solid ${theme.border}`,
+            borderRadius: "8px",
+            border: `2px solid ${theme.border}`,
             color: theme.highlight,
             fontSize: "16px",
             whiteSpace: "pre-wrap",
+            fontFamily: "monospace",
           }}
         >
+          <h3 style={{ color: theme.accent, marginBottom: "10px" }}>Generated Code:</h3>
           {droppedBlocks.map((block) => block.code).join("\n")}
-        </pre>
+        </div>
       </DndContext>
     </div>
   );
