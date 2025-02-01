@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DndContext,
   useDroppable,
@@ -26,21 +26,20 @@ const theme = {
   error: "#E06C75",
   accent: "#A9B7C6",
   blockHover: "#4E5254",
+  success: "#98C379",
 };
 
 // Define block structure
 interface Block {
   id: string;
-  label: string;
   code: string;
 }
 
-// Blocks that can be dragged
-const blocks: Block[] = [
-  { id: "print", label: "Print 'Hello, World!'", code: "print('Hello, World!')" },
-  { id: "var", label: "Variable x = 5", code: "x = 5" },
-  { id: "if", label: "If Condition", code: "if x > 0:\n    print('Positive')" },
-];
+interface Challenge {
+  challengeId: string;
+  task: string;
+  codeLines: Block[];
+}
 
 // Sortable block inside the Drop Zone
 const SortableBlock = ({ block }: { block: Block }) => {
@@ -75,7 +74,7 @@ const SortableBlock = ({ block }: { block: Block }) => {
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = theme.blockHover)}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = theme.panel)}
     >
-      {block.label}
+      {block.code}
     </div>
   );
 };
@@ -111,9 +110,8 @@ const DropZone = ({ droppedBlocks }: { droppedBlocks: Block[] }) => {
   );
 };
 
-// Trash Bin component
-// Trash Bin component
-const TrashBin = () => {
+// Modified TrashBin component with Check Code functionality
+const TrashBin = ({ onCheckCode }: { onCheckCode: () => void }) => {
   const { setNodeRef } = useDroppable({ id: "trash-bin" });
 
   return (
@@ -143,8 +141,8 @@ const TrashBin = () => {
         🗑️ Trash Bin
       </div>
 
-      {/* Check Code Button */}
       <button
+        onClick={onCheckCode}
         style={{
           backgroundColor: theme.highlight,
           border: "none",
@@ -167,13 +165,84 @@ const TrashBin = () => {
 // Main App component
 const App = () => {
   const [droppedBlocks, setDroppedBlocks] = useState<Block[]>([]);
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [feedback, setFeedback] = useState<{ message: string; success: boolean } | null>(null);
   const sensors = useSensors(useSensor(PointerSensor));
 
-  const handleDrop = (id: string) => {
-    const block = blocks.find((b) => b.id === id);
-    if (block) {
-      const newBlock = { ...block, id: `${block.id}-${Date.now()}` }; // Unique ID
-      setDroppedBlocks((prev) => [...prev, newBlock]);
+  // Fetch initial challenge
+  useEffect(() => {
+    generateChallenge();
+  }, []);
+
+  const generateChallenge = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          concept: 'for loop'  // You can make this configurable
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate challenge');
+      }
+
+      const data = await response.json();
+      setChallenge({
+        challengeId: data.challenge_id,
+        task: data.task,
+        codeLines: data.code_lines.map((line: any) => ({
+          id: line.id,
+          code: line.code,
+        })),
+      });
+      setDroppedBlocks([]);
+      setFeedback(null);
+    } catch (error) {
+      console.error('Error generating challenge:', error);
+      setFeedback({
+        message: 'Failed to generate challenge. Please try again.',
+        success: false,
+      });
+    }
+  };
+
+  const checkCode = async () => {
+    if (!challenge) return;
+
+    try {
+      const response = await fetch('http://localhost:8000/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          challenge_id: challenge.challengeId,
+          code_lines: droppedBlocks.map(block => ({
+            id: block.id,
+            code: block.code,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to check code');
+      }
+
+      const data = await response.json();
+      setFeedback({
+        message: data.message,
+        success: data.success,
+      });
+    } catch (error) {
+      console.error('Error checking code:', error);
+      setFeedback({
+        message: 'Failed to check code. Please try again.',
+        success: false,
+      });
     }
   };
 
@@ -194,15 +263,34 @@ const App = () => {
     }
   };
 
+  const handleDrop = (block: Block) => {
+    if (!droppedBlocks.some(b => b.id === block.id)) {
+      setDroppedBlocks((prev) => [...prev, block]);
+    }
+  };
+
   return (
-    <div style={{ backgroundColor: theme.background, height: "100vh", color: theme.text, padding: "20px" }}>
+    <div style={{ backgroundColor: theme.background, minHeight: "100vh", color: theme.text, padding: "20px" }}>
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
         <h1 style={{ textAlign: "center", color: theme.highlight, fontSize: "22px", marginBottom: "15px" }}>
-          JetBrains-Style Drag & Drop Coding
+          Code Block Challenge
         </h1>
 
+        {challenge && (
+          <div style={{ 
+            backgroundColor: theme.panel, 
+            padding: "15px", 
+            borderRadius: "8px", 
+            marginBottom: "20px",
+            border: `2px solid ${theme.border}`
+          }}>
+            <h2 style={{ color: theme.highlight, marginBottom: "10px", fontSize: "18px" }}>Task:</h2>
+            <p style={{ color: theme.text }}>{challenge.task}</p>
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: "30px", alignItems: "start" }}>
-          {/* Blocks that can be dragged */}
+          {/* Available Blocks */}
           <div
             style={{
               backgroundColor: theme.panel,
@@ -214,10 +302,9 @@ const App = () => {
             <h3 style={{ textAlign: "center", color: theme.accent, fontSize: "16px", marginBottom: "10px" }}>
               Available Blocks
             </h3>
-            {blocks.map((block) => (
+            {challenge?.codeLines.map((block) => (
               <div
                 key={block.id}
-                onMouseDown={() => handleDrop(block.id)}
                 style={{
                   padding: "12px",
                   margin: "6px 0",
@@ -230,8 +317,11 @@ const App = () => {
                   border: `1px solid ${theme.border}`,
                   transition: "background 0.2s ease",
                 }}
+                onMouseDown={() => handleDrop(block)}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = theme.blockHover)}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = theme.panel)}
               >
-                {block.label}
+                {block.code}
               </div>
             ))}
           </div>
@@ -240,8 +330,24 @@ const App = () => {
           <DropZone droppedBlocks={droppedBlocks} />
 
           {/* Trash Bin */}
-          <TrashBin />
+          <TrashBin onCheckCode={checkCode} />
         </div>
+
+        {/* Feedback Section */}
+        {feedback && (
+          <div
+            style={{
+              marginTop: "20px",
+              padding: "15px",
+              backgroundColor: theme.panel,
+              borderRadius: "8px",
+              border: `2px solid ${feedback.success ? theme.success : theme.error}`,
+              color: feedback.success ? theme.success : theme.error,
+            }}
+          >
+            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{feedback.message}</pre>
+          </div>
+        )}
 
         {/* Code Output */}
         <div
@@ -257,8 +363,30 @@ const App = () => {
             fontFamily: "monospace",
           }}
         >
-          <h3 style={{ color: theme.accent, marginBottom: "10px" }}>Generated Code:</h3>
+          <h3 style={{ color: theme.accent, marginBottom: "10px" }}>Current Code:</h3>
           {droppedBlocks.map((block) => block.code).join("\n")}
+        </div>
+
+        {/* New Challenge Button */}
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
+          <button
+            onClick={generateChallenge}
+            style={{
+              backgroundColor: theme.accent,
+              border: "none",
+              padding: "12px 24px",
+              borderRadius: "5px",
+              color: theme.background,
+              fontWeight: "bold",
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "background 0.2s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#BEC9D4")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = theme.accent)}
+          >
+            Generate New Challenge
+          </button>
         </div>
       </DndContext>
     </div>
