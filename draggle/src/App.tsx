@@ -1,79 +1,69 @@
-// src/App.tsx
-import React, { useState } from "react";
-import BlockPalette from "./components/BlockPalette";
-import Workspace from "./components/Workspace";
-import CodeView from "./components/CodeView";
+import { useEffect, useState } from "react";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import SortableItem from "./components/SortableItem";
+type Item = {
+  key: string;
+  id: number;
+  value: string;
+};
 
-/**
- * Main application component that handles block data flow:
- * 1. The user drags blocks from the BlockPalette.
- * 2. Dropped blocks appear in the Workspace.
- * 3. The arrangement generates code displayed in CodeView.
- */
-function App() {
-  const [blocks, setBlocks] = useState<string[]>([]);
+export default function App() {
+  const ogList = ["print hello world", "testing 123", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "16"]
+  const [items, setItems] = useState<Item[]>([]);
 
-  // When the user drops a block onto the workspace
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const blockData = event.dataTransfer.getData("text/plain");
-    setBlocks((prev) => [...prev, blockData]);
+  // Fisher-Yates shuffle algorithm
+  const shuffleArray = (array) => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]]; // Swap elements
+    }
+    return newArray;
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-  };
+  useEffect(() => {
+    const itemsWithIds = ogList.map((value, index) => ({
+      id: index,
+      key: `${index}-${value}`, // Unique ID by combining index and value
+      value: value,
+    }));
+    setItems(shuffleArray(itemsWithIds)); // Shuffle and set the new state
+  }, []);
 
-  // Generate a simple code representation from the blocks array
-  const generateCode = (): string => {
-    return blocks
-      .map((block, i) => {
-        // This is a naive approach. In a real scenario, each block might
-        // have a type, parameters, etc. to produce more structured code.
-        switch (block) {
-          case "Move 10 steps":
-            return `move(10);`;
-          case "Turn 90°":
-            return `turn(90);`;
-          case "Say 'Hello'":
-            return `say("Hello");`;
-          default:
-            return `// Unknown block: ${block}`;
-        }
-      })
-      .join("\n");
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+  
+    // Only proceed if the item has actually been moved
+    if (active.id !== over.id) {
+      const oldIndex = items.findIndex(item => item.id === active.id);
+      const newIndex = items.findIndex(item => item.id === over.id);
+  
+      // Create a copy of the items array
+      const newItems = [...items];
+  
+      // Remove the dragged item from its old position
+      const [movedItem] = newItems.splice(oldIndex, 1);
+  
+      // Insert the item into the new position
+      newItems.splice(newIndex, 0, movedItem);
+  
+      // Update the state with the new items order
+      setItems(newItems);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 flex flex-col">
-      <header className="mb-4">
-        <h1 className="text-3xl font-bold">Scratch-like Blocks (No-Code/Low-Code)</h1>
-        <p className="text-gray-600">
-          Drag blocks from the left palette into the workspace.  
-          See the generated code below!
-        </p>
-      </header>
-
-      <div className="flex flex-grow gap-4">
-        {/* Block Palette */}
-        <BlockPalette />
-
-        {/* Workspace (drop zone) */}
-        <div
-          className="flex-1 border-2 border-dashed border-gray-300 rounded-md p-4"
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-        >
-          <Workspace blocks={blocks} />
-        </div>
-      </div>
-
-      {/* Code Preview */}
-      <div className="mt-4">
-        <CodeView code={generateCode()} />
-      </div>
+    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={items} strategy={verticalListSortingStrategy}>
+          <div className="bg-white p-4 rounded-lg shadow-lg w-256 flex flex-col max-h-240 overflow-y-auto">
+            {items.map((item, index) => (
+              <SortableItem id={item.id} key={item.key} value={item.value}/>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
-
-export default App;
