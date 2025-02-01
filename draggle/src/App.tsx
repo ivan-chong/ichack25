@@ -22,6 +22,8 @@ export default function App() {
   const [highlightedItems, setHighlightedItems] = useState<boolean[]>(new Array(ogList.length).fill(false));
   const [showPopup, setShowPopup] = useState(true);
   const [topic, setTopic] = useState("");
+  const [timer, setTimer] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   const shuffleArray = (array) => {
     const newArray = [...array];
@@ -39,7 +41,18 @@ export default function App() {
       value: value,
     }));
     setItems(shuffleArray(itemsWithIds));
+    setIsTimerRunning(true); // Start the timer when the page loads
   }, []);
+
+  useEffect(() => {
+    let interval;
+    if (isTimerRunning) {
+      interval = setInterval(() => {
+        setTimer((prevTimer) => prevTimer + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning]);
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
@@ -81,6 +94,11 @@ export default function App() {
     setIdeValues(newIdeValues);
 
     highlightCorrectItems(newCorrectItems);
+
+    // Stop the timer if all items are correct
+    if (newCorrectItems.every(isCorrect => isCorrect)) {
+      setIsTimerRunning(false);
+    }
   };
 
   const handleTopicSubmit = async () => {
@@ -109,6 +127,11 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Timer Container */}
+      <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg">
+        <p className="text-lg font-bold">Time: {timer} seconds</p>
+      </div>
 
       <div className={`w-full max-w-full flex flex-col items-center ${showPopup ? 'blur-sm' : ''}`}>
         <div className="grid grid-cols-2 gap-8 w-full max-w-full">
