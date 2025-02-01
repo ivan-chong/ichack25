@@ -13,7 +13,20 @@ type Item = {
 
 export default function App() {
   const ogList = [
-    "print(\"hello world\")", "for i in range(0,10):", "\tprint(\"i\")"
+    "function greet(name) {",
+    "    console.log(`Hello, ${name}!`);",
+    "}",
+    "function add(a, b) {",
+    "    return a + b;",
+    "}",
+    "const numbers = [1, 2, 3, 4, 5];",
+    "const doubled = numbers.map(num => num * 2);",
+    "console.log('Doubled numbers:', doubled);",
+    "setTimeout(() => {",
+    "    console.log('This message appears after 2 seconds');",
+    "}, 2000);",
+    "greet('Alice');",
+    "console.log('Sum:', add(5, 7));"
   ];
 
   const [items, setItems] = useState<Item[]>([]);
@@ -149,7 +162,7 @@ export default function App() {
           <div className="col-span-1 flex flex-col items-start h-full">
             <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={items} strategy={verticalListSortingStrategy}>
-                <div className="bg-white p-4 rounded-lg shadow-lg w-full flex flex-col overflow-y-auto mb-4 h-full">
+                <div className="bg-white p-4 rounded-lg shadow-lg w-full flex flex-col overflow-y-auto max-h-[750px] mb-4">
                   {items.map((item, index) => (
                     <SortableItem
                       id={item.id}
