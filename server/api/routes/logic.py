@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-class Request(BaseModel):
+router = APIRouter()
+
+class RequestModel(BaseModel):
     request: str
 
 @router.post("/request")
-def calculate(request: Request):
-    if 1 == 1:
-        return {"result": "hello"}
+def calculate(request: RequestModel):
+    return {"result": "hello"}
