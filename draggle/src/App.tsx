@@ -20,6 +20,8 @@ export default function App() {
   const [correctItems, setCorrectItems] = useState<boolean[]>([]);
   const [ideValues, setIdeValues] = useState<string[]>(new Array(ogList.length).fill(""));
   const [highlightedItems, setHighlightedItems] = useState<boolean[]>(new Array(ogList.length).fill(false));
+  const [showPopup, setShowPopup] = useState(true);
+  const [topic, setTopic] = useState("");
 
   const shuffleArray = (array) => {
     const newArray = [...array];
@@ -61,7 +63,6 @@ export default function App() {
     const updatedHighlightedItems = newCorrectItems.map(isCorrect => isCorrect ? true : false);
     setHighlightedItems(updatedHighlightedItems);
 
-    // Reset highlighting after 2 seconds
     setTimeout(() => {
       setHighlightedItems(new Array(ogList.length).fill(false));
     }, 1000);
@@ -79,14 +80,38 @@ export default function App() {
     });
     setIdeValues(newIdeValues);
 
-    highlightCorrectItems(newCorrectItems); // Only highlight when submit is clicked
+    highlightCorrectItems(newCorrectItems);
+  };
+
+  const handleTopicSubmit = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    setShowPopup(false);
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-full flex flex-col items-center">
+    <div className="relative flex justify-center items-center min-h-screen bg-gray-200">
+      {showPopup && (
+        <div className="absolute inset-0 flex justify-center items-center bg-gray-900 bg-opacity-50 backdrop-blur-sm z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center">
+            <h2 className="text-lg font-bold mb-4">Enter a Topic</h2>
+            <input
+              type="text"
+              className="border border-gray-300 p-2 w-full rounded"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+            />
+            <button
+              onClick={handleTopicSubmit}
+              className="mt-4 py-2 px-6 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition"
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={`w-full max-w-full flex flex-col items-center ${showPopup ? 'blur-sm' : ''}`}>
         <div className="grid grid-cols-2 gap-8 w-full max-w-full">
-          {/* Fixed height for both the left IDE box and the right draggable box */}
           <div className="bg-gray-900 text-white p-4 rounded-lg shadow-lg col-span-1 flex flex-col overflow-y-auto h-full">
             {ogList.map((line, index) => (
               <div key={index} className="flex items-center space-x-2 mb-2">
@@ -98,7 +123,6 @@ export default function App() {
             ))}
           </div>
 
-          {/* Right draggable box with scrollable content */}
           <div className="col-span-1 flex flex-col items-start h-full">
             <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={items} strategy={verticalListSortingStrategy}>
@@ -108,7 +132,7 @@ export default function App() {
                       id={item.id}
                       key={item.key}
                       value={item.value}
-                      isHighlighted={highlightedItems[index]} // Pass the highlighted state
+                      isHighlighted={highlightedItems[index]}
                     />
                   ))}
                 </div>
@@ -117,7 +141,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Centered submit button below both boxes */}
         <div className="mt-4">
           <button onClick={handleSubmit} className="py-2 px-6 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition">
             Submit
