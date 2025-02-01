@@ -84,36 +84,41 @@ export default function App() {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <div className="grid grid-cols-2 gap-8 w-full max-w-full">
-        {/* Fixed height for the left IDE box */}
-        <div className="bg-gray-900 text-white p-4 rounded-lg shadow-lg col-span-1 flex flex-col overflow-y-auto" style={{ height: '300px' }}>
-          {ogList.map((line, index) => (
-            <div key={index} className="flex items-center space-x-2 mb-2">
-              <span className="text-gray-400">{index + 1}</span>
-              <SyntaxHighlighter language="python" style={dracula} customStyle={{ width: '100%', borderRadius: '5px', padding: '10px' }}>
-                {ideValues[index] || ""}
-              </SyntaxHighlighter>
-            </div>
-          ))}
+      <div className="w-full max-w-full flex flex-col items-center">
+        <div className="grid grid-cols-2 gap-8 w-full max-w-full">
+          {/* Fixed height for both the left IDE box and the right draggable box */}
+          <div className="bg-gray-900 text-white p-4 rounded-lg shadow-lg col-span-1 flex flex-col overflow-y-auto h-full">
+            {ogList.map((line, index) => (
+              <div key={index} className="flex items-center space-x-2 mb-2">
+                <span className="text-gray-400">{index + 1}</span>
+                <SyntaxHighlighter language="python" style={dracula} customStyle={{ width: '100%', borderRadius: '5px', padding: '10px' }}>
+                  {ideValues[index] || ""}
+                </SyntaxHighlighter>
+              </div>
+            ))}
+          </div>
+
+          {/* Right draggable box with scrollable content */}
+          <div className="col-span-1 flex flex-col items-start h-full">
+            <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={items} strategy={verticalListSortingStrategy}>
+                <div className="bg-white p-4 rounded-lg shadow-lg w-full flex flex-col overflow-y-auto mb-4 h-full">
+                  {items.map((item, index) => (
+                    <SortableItem
+                      id={item.id}
+                      key={item.key}
+                      value={item.value}
+                      isHighlighted={highlightedItems[index]} // Pass the highlighted state
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
         </div>
 
-        {/* Right draggable box with scrollable content */}
-        <div className="col-span-1 flex flex-col items-start">
-          <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={items} strategy={verticalListSortingStrategy}>
-              <div className="bg-white p-4 rounded-lg shadow-lg w-full flex flex-col overflow-y-auto mb-4" style={{ maxHeight: '300px' }}>
-                {items.map((item, index) => (
-                  <SortableItem
-                    id={item.id}
-                    key={item.key}
-                    value={item.value}
-                    isHighlighted={highlightedItems[index]} // Pass the highlighted state
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-
+        {/* Centered submit button below both boxes */}
+        <div className="mt-4">
           <button onClick={handleSubmit} className="py-2 px-6 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition">
             Submit
           </button>
