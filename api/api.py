@@ -40,6 +40,7 @@ class GenerationResponse(BaseModel):
     challenge_id: str
     task: str
     code_lines: list[str]
+    explanation: str
 
 
 class CheckRequest(BaseModel):
@@ -73,11 +74,13 @@ async def generate(request: GenerationRequest):
         "You are tasked with coming up with python coding exercises "
         "(think leetcodes of specified difficulty by user) to help students learn a concept. "
         "1. Come up with a question for the concept and provide inputs to the function. "
-        "2. Code a Python solution which is never greater than 25 lines of the specified difficulty. "
-        "3. Return the name of the function verbatim e.g. foo_bar"
-        "4. State a single test input (not output).\n\n"
+        "2. Come up with a brief explanation of the topic the user is interested in and that explains the code in the solution without giving away the answer."
+        "3. Code a Python solution which is never greater than 25 lines of the specified difficulty. "
+        "4. Return the name of the function verbatim e.g. foo_bar"
+        "5. State a single test input (not output).\n\n"
         "Your output format should be valid JSON:\n\n"
         "{\n"
+        "  \"explanation\": str,\n"        
         "  \"question_desc\": str,\n"
         "  \"solution_function\": str (must be valid python syntax so can be exec()),\n"
         "  \"function_name\": str (must match name of function in solution_function)"
@@ -115,6 +118,7 @@ async def generate(request: GenerationRequest):
     code = result["solution_function"]
     function_name = result["function_name"]
     test_case = result["test_case"]
+    explanation = result["explanation"]
 
     lines = code.split("\n")  # Split text into lines
     non_empty_lines = [line for line in lines if line.strip()]  # Remove lines that contain only whitespace
@@ -128,7 +132,8 @@ async def generate(request: GenerationRequest):
         "task": desc,
         "code": cleaned_lines,  # original, correct code
         "function_name": function_name,
-        "test_case": test_case 
+        "test_case": test_case,
+        "explanation": explanation
     }
 
     with open("realdatabase", "a+", encoding="utf-8") as f:
@@ -141,7 +146,8 @@ async def generate(request: GenerationRequest):
     return GenerationResponse(
         challenge_id=challenge_id,
         task=desc,
-        code_lines=code_lines
+        code_lines=code_lines,
+        explanation=explanation
     )
 
 

@@ -15,6 +15,7 @@ type GeneratedResponse = {
   challenge_id: string;
   task: string;
   code_lines: string[];
+  explanation: string;
 }
 
 export default function App() {
@@ -27,7 +28,7 @@ export default function App() {
   const [topic, setTopic] = useState("");
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [generatedData, setGeneratedData] = useState<GeneratedResponse>({challenge_id: "", task: "", code_lines: []});
+  const [generatedData, setGeneratedData] = useState<GeneratedResponse>({challenge_id: "", task: "", code_lines: [], explanation: ""});
 
   useEffect(() => {
     if (generatedData.code_lines.length > 0) {
@@ -142,7 +143,7 @@ export default function App() {
         console.log("API response:", data);
   
         // Destructure the response
-        const { challenge_id, task, code_lines } = data;
+        const { challenge_id, task, code_lines, explanation} = data;
   
         // Check if the LLM encountered an error
         if (challenge_id === "NULL") {
@@ -151,7 +152,7 @@ export default function App() {
         }
   
         // If valid data, update state
-        setGeneratedData({ challenge_id, task, code_lines });
+        setGeneratedData({ challenge_id, task, code_lines, explanation});
         setIdeValues(new Array(code_lines.length).fill(""));
         setHighlightedItems(new Array(code_lines.length).fill(false));
         setShowPopup(false); // Close popup only if successful
@@ -201,6 +202,13 @@ export default function App() {
       </div>
 
       <div className={`w-full max-w-full flex flex-col items-center ${showPopup ? 'blur-sm' : ''}`}>
+        {/* Explanation */}
+        {generatedData.explanation && (
+          <div className="bg-white p-4 rounded-lg shadow-lg mb-4 text-center w-full max-w-3xl">
+            <h2 className="text-lg font-bold">Explanation:</h2>
+            <p className="text-gray-700">{generatedData.explanation}</p>
+          </div>
+        )}
         {/* Display Task */}
         {generatedData.task && (
           <div className="bg-white p-4 rounded-lg shadow-lg mb-4 text-center w-full max-w-3xl">
