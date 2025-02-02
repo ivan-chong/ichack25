@@ -11,6 +11,12 @@ type Item = {
   value: string;
 };
 
+type GeneratedResponse = {
+  challenge_id: string;
+  task: string;
+  code_lines: string[];
+}
+
 export default function App() {
   const ogList = [
     "function greet(name) {",
@@ -18,15 +24,6 @@ export default function App() {
     "}",
     "function add(a, b) {",
     "    return a + b;",
-    "}",
-    "const numbers = [1, 2, 3, 4, 5];",
-    "const doubled = numbers.map(num => num * 2);",
-    "console.log('Doubled numbers:', doubled);",
-    "setTimeout(() => {",
-    "    console.log('This message appears after 2 seconds');",
-    "}, 2000);",
-    "greet('Alice');",
-    "console.log('Sum:', add(5, 7));"
   ];
 
   const [items, setItems] = useState<Item[]>([]);
@@ -37,6 +34,8 @@ export default function App() {
   const [topic, setTopic] = useState("");
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [generatedData, setGeneratedData] = useState<GeneratedResponse>();
+
 
   const shuffleArray = (array) => {
     const newArray = [...array];
@@ -115,9 +114,39 @@ export default function App() {
   };
 
   const handleTopicSubmit = async () => {
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-    setShowPopup(false);
+    try {
+      const response = await fetch('http://localhost:8000/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ concept: topic }), // Use topic state
+      });
+  
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API response:', data);
+  
+        // Destructure the response to access individual fields
+        const { challenge_id, task, code_lines } = data;
+  
+        console.log('Challenge ID:', challenge_id);
+        console.log('Task:', task);
+        console.log('Code Lines:', code_lines);
+  
+        // If you need to update state, do it here
+        setGeneratedData({ challenge_id, task, code_lines }); 
+      } else {
+        throw new Error('Failed to fetch data');
+      }
+    } catch (error) {
+      console.error('Error occurred:', error);
+    } finally {
+      setShowPopup(false);
+    }
   };
+  
+  
 
   return (
     <div className="relative flex justify-center items-center min-h-screen bg-gray-200">

@@ -1,0 +1,3 @@
+{"challenge_id": "d9261f15-6be2-42f8-a3ad-8fbedb4c1c93", "task": "Write a recursive function to calculate the factorial of a number", "code": "def recursive_factorial(n):\n    if n == 0:\n        return 1\n    else:\n        return n * recursive_factorial(n-1)", "test_case": 5}
+{"challenge_id": "188eabba-4dd6-4797-8841-3b7dda84e311", "task": "Write a recursive function to calculate the factorial of a number.", "code": "def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n-1)", "test_case": 5}
+{"challenge_id": "32940eb8-c37a-45ef-a153-e88601aaf19b", "task": "Write a recursive function to calculate the factorial of a number.", "code": "def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n-1)", "test_case": 5}
