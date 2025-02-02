@@ -1,0 +1,1 @@
+Draggle is a low-code educational tool developed for ICHack25. It leverages the power of LLMs to generate coding exercises on topics of the users choice, allowing them to unscramble code blocks to complete the task.
