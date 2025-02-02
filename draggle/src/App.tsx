@@ -120,7 +120,7 @@ export default function App() {
         setTimeout(() => {
           setShowPopup(true);
           setTimer(0); // Reset timer
-        }, 1500);
+        }, 2000);
       }
     } catch (error) {
       console.error("Error submitting data:", error);
