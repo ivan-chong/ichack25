@@ -13,6 +13,11 @@ import os
 import json
 app = FastAPI(title="Code Rearrangement Checker")
 
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 # In-memory store for challenges.
 # Each challenge is stored as a dict with the original task, generated code, and expected output.
 
@@ -43,30 +48,11 @@ class CheckRequest(BaseModel):
 
 
 class CheckResponse(BaseModel):
-    success: bool
-    message: str
-
+    code_lines: list[int] # binary list
 
 # -----------------------------
 # Utility Functions
 # -----------------------------
-
-def run_code(code: str):
-    """
-    Executes the given Python code and captures its standard output.
-    Returns a tuple: (output, error)
-    If execution succeeds, error is None. If an exception is raised, output is None.
-    """
-    local_vars = {}
-    stdout_capture = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(stdout_capture):
-            exec(code, {}, local_vars)
-    except Exception as e:
-        return None, str(e)
-    output = stdout_capture.getvalue()
-    return output, None
-
 # -----------------------------
 # API Endpoints
 # -----------------------------
@@ -84,16 +70,18 @@ async def generate(request: GenerationRequest):
     client = openai.Client(api_key=api_key)
     
     system_prompt = (
-        "You are tasked with coming up with simple python coding exercises "
-        "(think very easy Leetcodes) to help students learn a concept. "
-        "1. Come up with a basic question for the concept and provide inputs to the function. "
+        "You are tasked with coming up with python coding exercises "
+        "(think leetcodes of specified difficulty by user) to help students learn a concept. "
+        "1. Come up with a question for the concept and provide inputs to the function. "
         "2. Code a simple Python solution. "
-        "3. State a single test input (not output).\n\n"
+        "3. Return the name of the function verbatim e.g. foo_bar"
+        "4. State a single test input (not output).\n\n"
         "Your output format should be valid JSON:\n\n"
         "{\n"
         "  \"question_desc\": str,\n"
         "  \"solution_function\": str (must be valid python syntax so can be exec()),\n"
-        "  \"test_case\": example_test_input (list or number or string)\n"
+        "  \"function_name\": str (must match name of function in solution_function)"
+        "  \"test_case\": example_test_input this is a LIST of args, e.g. if the function takes list[int],str then this should be of form [[1,2,3],\"hello\"], if it takes 2 ints then [4,5] if it takes a list of strings then [[list of strings]]))\n"
         "}"
     )
     
@@ -107,21 +95,40 @@ async def generate(request: GenerationRequest):
         ]
     )
     
-    result = json.loads(response.choices[0].message.content)
+    try:
+        result = json.loads(response.choices[0].message.content)
+    except:
+        response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+            ]
+        )
+        try:
+            result = json.loads(response.choices[0].message.content)
+        except:
+            return GenerationResponse(challenge_id="NULL",task="NULL",code_lines=[])
+            
+
     desc = result["question_desc"]
     code = result["solution_function"]
+    function_name = result["function_name"]
     test_case = result["test_case"]
+
+    cleaned_lines = "".join(line + "\n" for line in code.splitlines() if line.strip())
     
     # Generate a unique challenge ID and store the challenge details
     challenge_id = str(uuid.uuid4())
     challenge = {
         "challenge_id": challenge_id,
         "task": desc,
-        "code": code,  # original, correct code
+        "code": cleaned_lines,  # original, correct code
+        "function_name": function_name,
         "test_case": test_case 
     }
 
-    with open("realdatabase", "a", encoding="utf-8") as f:
+    with open("realdatabase", "a+", encoding="utf-8") as f:
         json.dump(challenge, f)  # Convert dict to JSON string
         f.write("\n")  # Add newline to separate JSON objects
     
@@ -142,34 +149,48 @@ async def check(request: CheckRequest):
     The backend reconstructs the code, executes it, and compares the output with the expected output.
     Returns success if the outputs match, or an error message otherwise.
     """
-    filejson = None
-    with open("realdatabase" , "r", encoding="utf-8") as f:
-        filejson = json.loads(f)
-    if not filejson:
-        raise HTTPException(status_code=500, detail="Server issue")
-    if request.
+    data = []
+    with open("realdatabase", "r", encoding="utf-8") as file:
+        data = [json.loads(line) for line in file]
     
-    # Reconstruct the code from the provided lines (assumes the list is in the user–provided order)
-    reconstructed_code = "\n".join(line.code for line in request.code_lines)
-    
-    # Execute the reconstructed code and capture its output
-    output, error = run_code(reconstructed_code)
-    if error:
-        return CheckResponse(success=False, message=f"Code execution error: {error}")
-    
-    # Compare the output with the expected output from the challenge
-    if output == challenge["expected_output"]:
-        return CheckResponse(success=True, message="Success: Code output is correct.")
-    else:
-        return CheckResponse(
-            success=False,
-            message=(
-                "Failure: The output does not match the expected output.\n"
-                f"Expected:\n{challenge['expected_output']}\n"
-                f"Got:\n{output}"
-            )
-        )
 
+    # Reconstruct the code from the provided lines (assumes the list is in the user–provided order)
+    reconstructed_code = "".join(line + "\n" for line in request.code_lines)
+    function_name = ""
+    for d in data:
+        if d["challenge_id"] == request.challenge_id:
+            function_name = d["function_name"]
+    result = None
+    case = d["test_case"]
+    failed = False
+    actual_failed = False
+    try:
+        exec(reconstructed_code)
+        func = locals()[function_name]
+        result = func(*case)
+    except:
+        result = None 
+        failed = True
+    try:
+        exec(d["code"])
+        func = locals()[function_name]
+        actual_result = func(*case)
+    except:
+        actual_result = None
+        actual_failed = True
+    if actual_result == result and not failed and not actual_failed:
+        return CheckResponse(code_lines = ([1]*len(request.code_lines)))
+    else:
+        output = []
+        real_code_lines = d["code"].split("\n")
+        for i,line in enumerate(request.code_lines):
+            if line == real_code_lines[i]:
+                output.append(1)
+            else:
+                output.append(0)
+    
+
+    return CheckResponse(code_lines=output)
 
 # -----------------------------
 # Main entry point

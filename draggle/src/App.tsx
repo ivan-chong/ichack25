@@ -18,43 +18,28 @@ type GeneratedResponse = {
 }
 
 export default function App() {
-  const ogList = [
-    "function greet(name) {",
-    "    console.log(`Hello, ${name}!`);",
-    "}",
-    "function add(a, b) {",
-    "    return a + b;",
-  ];
 
   const [items, setItems] = useState<Item[]>([]);
   const [correctItems, setCorrectItems] = useState<boolean[]>([]);
-  const [ideValues, setIdeValues] = useState<string[]>(new Array(ogList.length).fill(""));
-  const [highlightedItems, setHighlightedItems] = useState<boolean[]>(new Array(ogList.length).fill(false));
+  const [ideValues, setIdeValues] = useState<string[]>([]);
+  const [highlightedItems, setHighlightedItems] = useState<boolean[]>([]);
   const [showPopup, setShowPopup] = useState(true);
   const [topic, setTopic] = useState("");
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [generatedData, setGeneratedData] = useState<GeneratedResponse>();
-
-
-  const shuffleArray = (array) => {
-    const newArray = [...array];
-    for (let i = newArray.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-    }
-    return newArray;
-  };
+  const [generatedData, setGeneratedData] = useState<GeneratedResponse>({challenge_id: "", task: "", code_lines: []});
 
   useEffect(() => {
-    const itemsWithIds = ogList.map((value, index) => ({
-      id: index,
-      key: `${index}-${value}`,
-      value: value,
-    }));
-    setItems(shuffleArray(itemsWithIds));
-    setIsTimerRunning(true); // Start the timer when the page loads
-  }, []);
+    if (generatedData.code_lines.length > 0) {
+      const itemsWithIds = generatedData.code_lines.map((value, index) => ({
+        id: index,
+        key: `${index}-${value}`,
+        value: value,
+      }));
+      setItems(itemsWithIds);
+      setIsTimerRunning(true); // Start the timer when new data is loaded
+    }
+  }, [generatedData.code_lines]);
 
   useEffect(() => {
     let interval;
@@ -78,9 +63,6 @@ export default function App() {
       newItems.splice(newIndex, 0, movedItem);
 
       setItems(newItems);
-
-      const newCorrectItems = newItems.map((item, index) => item.value === ogList[index]);
-      setCorrectItems(newCorrectItems);
     }
   };
 
@@ -89,30 +71,62 @@ export default function App() {
     setHighlightedItems(updatedHighlightedItems);
 
     setTimeout(() => {
-      setHighlightedItems(new Array(ogList.length).fill(false));
+      setHighlightedItems(new Array(generatedData.code_lines.length).fill(false));
     }, 1000);
   };
 
-  const handleSubmit = () => {
-    const newCorrectItems = items.map((item, index) => item.value === ogList[index]);
-    setCorrectItems(newCorrectItems);
-
-    const newIdeValues = [...ideValues];
-    newCorrectItems.forEach((isCorrect, index) => {
-      if (isCorrect) {
-        newIdeValues[index] = items[index].value;
+  const handleSubmit = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code_lines: items.map(item => item.value), challenge_id: generatedData.challenge_id }),
+      });
+  
+      if (!response.ok) {
+        throw new Error("Failed to check the response");
       }
-    });
-    setIdeValues(newIdeValues);
-
-    highlightCorrectItems(newCorrectItems);
-
-    // Stop the timer if all items are correct
-    if (newCorrectItems.every(isCorrect => isCorrect)) {
-      setIsTimerRunning(false);
+  
+      const result = await response.json();
+      if (!Array.isArray(result.code_lines)) {
+        throw new Error("Invalid response format from API");
+      }
+  
+      // Update IDE values with correct lines immediately
+      const newIdeValues = [...ideValues];
+      result.code_lines.forEach((isCorrect, index) => {
+        if (isCorrect === 1) {
+          newIdeValues[index] = items[index].value;
+        }
+      });
+      setIdeValues(newIdeValues);
+  
+      // Show highlight for a second
+      setHighlightedItems(result.code_lines.map(val => val === 1));
+      setTimeout(() => {
+        setHighlightedItems(new Array(generatedData.code_lines.length).fill(false));
+      }, 1000);
+  
+      // If all items are correct, stop timer and delay popup
+      if (result.code_lines.every(val => val === 1)) {
+        setIsTimerRunning(false);
+  
+        // Show congratulations message and delay the popup by 3 seconds
+        setTopic(`Congratulations! You completed the challenge in ${timer} seconds.`);
+        
+        setTimeout(() => {
+          setShowPopup(true);
+          setTimer(0); // Reset timer
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("Error submitting data:", error);
     }
   };
-
+  
+  
   const handleTopicSubmit = async () => {
     try {
       const response = await fetch('http://localhost:8000/generate', {
@@ -129,13 +143,11 @@ export default function App() {
   
         // Destructure the response to access individual fields
         const { challenge_id, task, code_lines } = data;
-  
-        console.log('Challenge ID:', challenge_id);
-        console.log('Task:', task);
-        console.log('Code Lines:', code_lines);
-  
+
         // If you need to update state, do it here
-        setGeneratedData({ challenge_id, task, code_lines }); 
+        setGeneratedData({ challenge_id, task, code_lines });
+        setIdeValues(new Array(generatedData.code_lines.length).fill(""))
+        setHighlightedItems(new Array(generatedData.code_lines.length).fill(false))
       } else {
         throw new Error('Failed to fetch data');
       }
@@ -153,11 +165,17 @@ export default function App() {
       {showPopup && (
         <div className="absolute inset-0 flex justify-center items-center bg-gray-900 bg-opacity-50 backdrop-blur-sm z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center">
+            {/* Show the congratulatory message if present */}
+            {topic.startsWith("Congratulations") && (
+              <p className="text-green-600 font-bold mb-4">{topic}</p>
+            )}
+
             <h2 className="text-lg font-bold mb-4">Enter a Topic</h2>
             <input
               type="text"
               className="border border-gray-300 p-2 w-full rounded"
-              value={topic}
+              placeholder="Enter a topic"
+              value={topic.startsWith("Congratulations") ? "" : topic}
               onChange={(e) => setTopic(e.target.value)}
             />
             <button
@@ -170,15 +188,22 @@ export default function App() {
         </div>
       )}
 
-      {/* Timer Container */}
       <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg">
         <p className="text-lg font-bold">Time: {timer} seconds</p>
       </div>
 
       <div className={`w-full max-w-full flex flex-col items-center ${showPopup ? 'blur-sm' : ''}`}>
+        {/* Display Task */}
+        {generatedData.task && (
+          <div className="bg-white p-4 rounded-lg shadow-lg mb-4 text-center w-full max-w-3xl">
+            <h2 className="text-lg font-bold">Task:</h2>
+            <p className="text-gray-700">{generatedData.task}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-8 w-full max-w-full">
           <div className="bg-gray-900 text-white p-4 rounded-lg shadow-lg col-span-1 flex flex-col overflow-y-auto h-full">
-            {ogList.map((line, index) => (
+            {generatedData.code_lines.map((line, index) => (
               <div key={index} className="flex items-center space-x-2 mb-2">
                 <span className="text-gray-400">{index + 1}</span>
                 <SyntaxHighlighter language="python" style={dracula} customStyle={{ width: '100%', borderRadius: '5px', padding: '10px' }}>
