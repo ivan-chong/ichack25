@@ -129,65 +129,73 @@ export default function App() {
   
   const handleTopicSubmit = async () => {
     try {
-      const response = await fetch('http://localhost:8000/generate', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8000/generate", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ concept: topic }), // Use topic state
       });
   
       if (response.ok) {
         const data = await response.json();
-        console.log('API response:', data);
+        console.log("API response:", data);
   
-        // Destructure the response to access individual fields
+        // Destructure the response
         const { challenge_id, task, code_lines } = data;
-
-        // If you need to update state, do it here
+  
+        // Check if the LLM encountered an error
+        if (challenge_id === "NULL") {
+          setTopic("There was an external LLM error. Please try again.");
+          return; // Do not close the popup
+        }
+  
+        // If valid data, update state
         setGeneratedData({ challenge_id, task, code_lines });
-        setIdeValues(new Array(generatedData.code_lines.length).fill(""))
-        setHighlightedItems(new Array(generatedData.code_lines.length).fill(false))
+        setIdeValues(new Array(code_lines.length).fill(""));
+        setHighlightedItems(new Array(code_lines.length).fill(false));
+        setShowPopup(false); // Close popup only if successful
       } else {
-        throw new Error('Failed to fetch data');
+        throw new Error("Failed to fetch data");
       }
     } catch (error) {
-      console.error('Error occurred:', error);
-    } finally {
-      setShowPopup(false);
+      console.error("Error occurred:", error);
+      setTopic("There was an external LLM error. Please try again.");
     }
   };
-  
-  
 
   return (
     <div className="relative flex justify-center items-center min-h-screen bg-gray-200">
-      {showPopup && (
-        <div className="absolute inset-0 flex justify-center items-center bg-gray-900 bg-opacity-50 backdrop-blur-sm z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center">
-            {/* Show the congratulatory message if present */}
-            {topic.startsWith("Congratulations") && (
-              <p className="text-green-600 font-bold mb-4">{topic}</p>
-            )}
+    {showPopup && (
+      <div className="absolute inset-0 flex justify-center items-center bg-gray-900 bg-opacity-50 backdrop-blur-sm z-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center">
+          {/* Show congratulatory message if present */}
+          {topic.startsWith("Congratulations") && (
+            <p className="text-green-600 font-bold mb-4">{topic}</p>
+          )}
 
-            <h2 className="text-lg font-bold mb-4">Enter a Topic</h2>
-            <input
-              type="text"
-              className="border border-gray-300 p-2 w-full rounded"
-              placeholder="Enter a topic"
-              value={topic.startsWith("Congratulations") ? "" : topic}
-              onChange={(e) => setTopic(e.target.value)}
-            />
-            <button
-              onClick={handleTopicSubmit}
-              className="mt-4 py-2 px-6 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition"
-            >
-              Submit
-            </button>
-          </div>
+          {/* Show error message if LLM fails */}
+          {topic === "There was an external LLM error. Please try again." && (
+            <p className="text-red-600 font-bold mb-4">{topic}</p>
+          )}
+
+          <h2 className="text-lg font-bold mb-4">Enter a Topic</h2>
+          <input
+            type="text"
+            className="border border-gray-300 p-2 w-full rounded"
+            placeholder="Enter a topic"
+            value={topic.startsWith("Congratulations") || topic === "There was an external LLM error. Please try again." ? "" : topic}
+            onChange={(e) => setTopic(e.target.value)}
+          />
+          <button
+            onClick={handleTopicSubmit}
+            className="mt-4 py-2 px-6 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition"
+          >
+            Submit
+          </button>
         </div>
-      )}
-
+      </div>
+    )}
       <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg">
         <p className="text-lg font-bold">Time: {timer} seconds</p>
       </div>
@@ -202,7 +210,7 @@ export default function App() {
         )}
 
         <div className="grid grid-cols-2 gap-8 w-full max-w-full">
-          <div className="bg-gray-900 text-white p-4 rounded-lg shadow-lg col-span-1 flex flex-col overflow-y-auto h-full">
+          <div className="bg-gray-900 text-white p-4 rounded-lg shadow-lg col-span-1 flex flex-col overflow-y-auto max-h-[750px]">
             {generatedData.code_lines.map((line, index) => (
               <div key={index} className="flex items-center space-x-2 mb-2">
                 <span className="text-gray-400">{index + 1}</span>

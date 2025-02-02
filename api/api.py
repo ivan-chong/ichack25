@@ -73,7 +73,7 @@ async def generate(request: GenerationRequest):
         "You are tasked with coming up with python coding exercises "
         "(think leetcodes of specified difficulty by user) to help students learn a concept. "
         "1. Come up with a question for the concept and provide inputs to the function. "
-        "2. Code a simple Python solution. "
+        "2. Code a Python solution which is never greater than 25 lines of the specified difficulty. "
         "3. Return the name of the function verbatim e.g. foo_bar"
         "4. State a single test input (not output).\n\n"
         "Your output format should be valid JSON:\n\n"
@@ -116,7 +116,10 @@ async def generate(request: GenerationRequest):
     function_name = result["function_name"]
     test_case = result["test_case"]
 
-    cleaned_lines = "".join(line + "\n" for line in code.splitlines() if line.strip())
+    lines = code.split("\n")  # Split text into lines
+    non_empty_lines = [line for line in lines if line.strip()]  # Remove lines that contain only whitespace
+    cleaned_lines="\n".join(non_empty_lines)  # Reconstruct the string
+
     
     # Generate a unique challenge ID and store the challenge details
     challenge_id = str(uuid.uuid4())
@@ -132,7 +135,7 @@ async def generate(request: GenerationRequest):
         json.dump(challenge, f)  # Convert dict to JSON string
         f.write("\n")  # Add newline to separate JSON objects
     
-    code_lines = code.split("\n")
+    code_lines = cleaned_lines.split("\n")
     random.shuffle(code_lines)
     # return shuffled lines of code and uuid
     return GenerationResponse(
@@ -183,6 +186,8 @@ async def check(request: CheckRequest):
     else:
         output = []
         real_code_lines = d["code"].split("\n")
+        logger.debug(real_code_lines)
+        logger.debug(request.code_lines)
         for i,line in enumerate(request.code_lines):
             if line == real_code_lines[i]:
                 output.append(1)
